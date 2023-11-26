@@ -89,7 +89,7 @@ def main():
             b_ok: bool = False
             if d_pack["type"] == "zip":
                 print(f'Checking/Building {d_pack["name"]} files from ZIP...')
-                b_ok = build_sd_fromdb(s_cache_path, d_pack, s_out_path)
+                b_ok = build_sd_fromdb(s_cache_path, d_pack, arg_data)
             elif d_pack["type"] == "files":
                 print(f'Checking/Building {d_pack["name"]} files...')
                 b_ok = build_sd_files_fromdb(s_cache_path, d_pack, arg_data)
@@ -298,10 +298,11 @@ def load_db(s_dirpath: str,
     if b_force and os.path.isfile(s_jsonzip):
         os.remove(s_jsonzip)
 
-    b_ok: bool = chk_or_download(s_dirpath, s_zipname, s_hash, i_size,
-                                 urljoin(s_urlbase, s_zipname))
-    if not b_ok:
-        print(f'{s_name} Bad file!')
+    if not os.path.isfile(s_json):
+        b_ok: bool = chk_or_download(s_dirpath, s_zipname, s_hash, i_size,
+                                     urljoin(s_urlbase, s_zipname))
+        if not b_ok:
+            print(f'{s_name} Bad file!')
 
     d_result: dict[str, Any] = {}
     if os.path.isfile(s_json):
@@ -326,7 +327,7 @@ def load_db(s_dirpath: str,
 
 
 def build_sd_fromdb(s_dir: str, d_db_params: dict[str, Any],
-                    s_outdir: str) -> bool:
+                    d_params: dict[str, Any]) -> bool:
     """
     Builds SD from ZIP file using DB of URLs, etc.
     :param s_dir: Path where DB file is to be found or downloaded
@@ -339,6 +340,9 @@ def build_sd_fromdb(s_dir: str, d_db_params: dict[str, Any],
     s_url: str = d_db_params['url']
     s_hash: str = d_db_params['hash']
     i_size: int = d_db_params['size']
+    b_keep: bool = True
+    if d_db_params['args_keep']:
+        b_keep = d_params['keep']
 
     b_ok: bool = False
 
@@ -357,8 +361,12 @@ def build_sd_fromdb(s_dir: str, d_db_params: dict[str, Any],
 
     if s_content:
         LOGGER.debug('Copying files for SD from %s DB...', s_name)
-        b_ok = build_sd_fromzip(os.path.join(s_dir, s_content), d_db['files'],
-                                s_outdir)
+        b_ok = build_sd_fromzip(d_db, d_params['kinds'],
+                                d_params['types'], d_params['tags'],
+                                os.path.join(s_dir,
+                                             s_content), d_params['out_dir'],
+                                d_db_params['out_path'], d_params['group_tags'],
+                                d_params['group_types'], b_keep)
     else:
         LOGGER.error('Content not defined in %s', s_name)
 
@@ -408,10 +416,12 @@ def build_sd_files_fromdb(s_path: str, d_db_params: dict[str, Any],
     return b_ok
 
 
-def build_sd_fromzip(s_zip_path: str, d_zip_files: dict[str, Any],
-                     s_out_dir: str) -> bool:
+def build_sd_fromzip(d_zip_bd: dict[str, Any], l_kinds: list[str],
+                     l_types: list[str], l_tags: list[str], s_zip_path: str,
+                     s_out_path: str, s_out_subpath, b_taggroups: bool,
+                     b_typegroups: bool, b_keep: bool) -> bool:
     """
-    Builds SD files extracting from a zip file
+    Builds SD extracting individual files according to filtering criteria
     :param s_zip_path: Full path to ZIP file containing original files
     :param d_zip_files: Dictionary with all the ZIP files to exttact
     :param s_out_dir: Path to directory wher files will be extracted
@@ -419,16 +429,41 @@ def build_sd_fromzip(s_zip_path: str, d_zip_files: dict[str, Any],
     """
 
     b_ok = False
-    d_files: dict[str, Any] = d_zip_files
-    for s_orig in d_files:
-        s_dest: str = s_out_dir
-        l_subdirs: list[str] = d_files[s_orig].get('path', [])
+    d_zip_files: dict[str, Any] = d_zip_bd['files']
+    d_tags: dict[str, Any] = d_zip_bd.get('tag_dictionary', {})
+    for s_orig in d_zip_files:
+        s_dest: str = s_out_path
+        if s_out_subpath:
+            s_dest = os.path.join(s_dest, s_out_subpath)
+        l_subdirs: list[str] = d_zip_files[s_orig].get('path', [])
         if l_subdirs:
             s_dest: str = os.path.join(s_dest, os.path.join(*l_subdirs))
-        s_dest: str = os.path.join(s_dest, d_files[s_orig]['file'])
-        s_hash: str = d_files[s_orig]['hash']
-        i_size: int = d_files[s_orig]['size']
-        b_ok = chk_or_extract(s_orig, s_dest, s_hash, i_size, s_zip_path)
+
+        s_hash: str = d_zip_files[s_orig]['hash']
+        i_size: int = d_zip_files[s_orig]['size']
+        if d_tags:
+            s_kind = d_zip_files[s_orig].get('kind', '')
+            if s_kind in l_kinds and d_zip_files[s_orig][
+                    'type'] in l_types:  # Fully tagged item, copy if tag matches
+                if b_typegroups:
+                    s_dest = os.path.join(s_dest, d_zip_files[s_orig]['type'])
+
+                for i_item in d_zip_files[s_orig]['tags']:
+                    for j_item in d_tags:
+                        if d_tags[j_item] == i_item and j_item in l_tags:
+                            if b_taggroups:
+                                s_dest = os.path.join(s_dest, j_item)
+
+                            if not os.path.isdir(s_dest):
+                                pathlib.Path(s_dest).mkdir(parents=True,
+                                                           exist_ok=True)
+                            s_dest: str = os.path.join(s_dest,
+                                                       d_zip_files[s_orig]['file'])
+                            b_ok = chk_or_extract(s_orig, s_dest, s_hash,
+                                                  i_size, s_zip_path)
+        else:
+            s_dest: str = os.path.join(s_dest, d_zip_files[s_orig]['file'])
+            b_ok = chk_or_extract(s_orig, s_dest, s_hash, i_size, s_zip_path)
 
     return b_ok
 
@@ -562,7 +597,7 @@ def build_sd_files(d_files_db: dict[str, Any], l_kinds: list[str],
                    s_out_path: str, s_out_subpath, b_taggroups: bool,
                    b_typegroups: bool, b_keep: bool) -> bool:
     """
-    Builds SD downloading individual files according to filterin criteria
+    Builds SD downloading individual files according to filtering criteria
     :param d_files_db: Database with all the files information
     :param l_kinds: Kind of core files to use (a100t, a35t, etc.)
     :param l_types: Type of core files to use (bit, zx3, etc.)
