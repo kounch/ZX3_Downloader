@@ -1,4 +1,4 @@
-# ARC and ROM Builder
+# ZX3 Downloader
 
 Copyright (c) 2023, kounch
 
@@ -43,11 +43,11 @@ For example, for ZXTRES++
 
 On Windows
 
-     py -3 ARC_ROM_Builder.py -k a200t
+     py -3 ZX3_Downloader.py -k a200t
 
 Or
 
-    ..python.exe ARC_ROM_Builder.py -k a200t
+    ..python.exe ZX3_Downloader.py -k a200t
 
 This will create the file and directory structure including things like [esxdos](http://www.esxdos.org/index.html), [extra commands](https://github.com/zxtres/dot_commands), [cores](https://github.com/zxtres/cores), etc.
 
