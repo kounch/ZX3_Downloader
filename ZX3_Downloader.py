@@ -565,7 +565,7 @@ def build_autoboot(s_dir: str, s_autoboot, s_outdir: str) -> bool:
     s_configured: str = ''
     for s_line in s_config.split('\n'):
         if s_line.lower().startswith('autoboot='):
-            s_line = 'Autoboot=3'
+            s_line = 'AutoBoot=3'
         LOGGER.debug(s_line)
         s_configured += (f'{s_line}\n')
 
