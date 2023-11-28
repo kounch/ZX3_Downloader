@@ -74,6 +74,9 @@ The script has the following parameters:
                           console, computer, util)
     -g, --group_types     Group core files by file type
     -G, --group_tags      Group core files by tag
+    -a AUTOBOOT, --autoboot AUTOBOOT
+                          Define autoboot type -directory- (only when grouping by type)
+    -n, --no_autoboot     No autoboot install
 
 ---
 
@@ -137,6 +140,9 @@ El script tiene los siguientes parámetros:
                             computer, util)
     -g, --group_types       Agrupar los ficheros de core por tipo
     -G, --group_tags        Agrupar los ficheros de core por tipo de contenido
+    -a AUTOBOOT, --autoboot AUTOBOOT
+                            Definir el tipo (directorio) de autoarranque (sólo al agrupar por tipo de core)
+    -n, --no_autoboot       No configurar autoarranque
 
 ---
 

@@ -29,7 +29,7 @@ import shutil
 import subprocess
 import time
 
-__MY_VERSION__ = '0.0.1'
+__MY_VERSION__ = '0.0.2'
 
 MY_BASEPATH: str = os.path.dirname(sys.argv[0])
 MY_DIRPATH: str = os.path.abspath(MY_BASEPATH)
@@ -99,10 +99,15 @@ def main():
             if not b_ok:
                 LOGGER.error("Error building %s files", d_pack["name"])
 
-    #TMP for esxdos
+    # TMP for esxdos
     s_tmp_path = os.path.join(s_out_path, 'TMP')
     if not os.path.isdir(s_tmp_path):
         pathlib.Path(s_tmp_path).mkdir(parents=True, exist_ok=True)
+
+    # Autotoboot for esxdos
+    if arg_data['autoboot']:
+        b_ok = build_autoboot(os.path.join(MY_DIRPATH, 'Autoboot'),
+                              arg_data['autoboot'], s_out_path)
 
     print("Finished")
 
@@ -124,6 +129,7 @@ def parse_args() -> dict[str, Any]:
     values['group_types'] = False
     values['group_tags'] = False
     values['keep'] = False
+    values['autoboot'] = 'cores'
 
     parser = argparse.ArgumentParser(description='ZX3 Downloader',
                                      epilog='Downloads files for ZX3 microSD')
@@ -195,6 +201,20 @@ def parse_args() -> dict[str, Any]:
                         dest='group_tags',
                         help='Group core files by tag')
 
+    parser.add_argument('-a',
+                        '--autoboot',
+                        required=False,
+                        action='store',
+                        dest='autoboot',
+                        help='Define autoboot type')
+
+    parser.add_argument('-n',
+                        '--no_autoboot',
+                        required=False,
+                        action='store_true',
+                        dest='no_autoboot',
+                        help='No autoboot install')
+
     parser.add_argument('--debug',
                         required=False,
                         action='store_true',
@@ -253,11 +273,20 @@ def parse_args() -> dict[str, Any]:
 
     if arguments.group_types:
         values['group_types'] = True
+        if arguments.autoboot:
+            l_boot_types: list[str] = values['types'] + ['cores']
+            if arguments.autoboot in l_boot_types:
+                values['autoboot'] = arguments.autoboot
+            else:
+                LOGGER.error('Bad boot type: %s', arguments.autoboot)
+
+    if arguments.no_autoboot:
+        values['autoboot'] = ''
 
     if arguments.group_tags:
         values['group_tags'] = True
 
-    if not values['types']:
+    if not values['kinds']:
         LOGGER.error('Need at least one kind of FPGA')
         sys.exit(3)
 
@@ -340,9 +369,6 @@ def build_sd_fromdb(s_dir: str, d_db_params: dict[str, Any],
     s_url: str = d_db_params['url']
     s_hash: str = d_db_params['hash']
     i_size: int = d_db_params['size']
-    b_keep: bool = True
-    if d_db_params['args_keep']:
-        b_keep = d_params['keep']
 
     b_ok: bool = False
 
@@ -363,10 +389,10 @@ def build_sd_fromdb(s_dir: str, d_db_params: dict[str, Any],
         LOGGER.debug('Copying files for SD from %s DB...', s_name)
         b_ok = build_sd_fromzip(d_db, d_params['kinds'],
                                 d_params['types'], d_params['tags'],
-                                os.path.join(s_dir,
-                                             s_content), d_params['out_dir'],
-                                d_db_params['out_path'], d_params['group_tags'],
-                                d_params['group_types'], b_keep)
+                                os.path.join(s_dir, s_content),
+                                d_params['out_dir'], d_db_params['out_path'],
+                                d_params['group_tags'],
+                                d_params['group_types'])
     else:
         LOGGER.error('Content not defined in %s', s_name)
 
@@ -419,7 +445,7 @@ def build_sd_files_fromdb(s_path: str, d_db_params: dict[str, Any],
 def build_sd_fromzip(d_zip_bd: dict[str, Any], l_kinds: list[str],
                      l_types: list[str], l_tags: list[str], s_zip_path: str,
                      s_out_path: str, s_out_subpath, b_taggroups: bool,
-                     b_typegroups: bool, b_keep: bool) -> bool:
+                     b_typegroups: bool) -> bool:
     """
     Builds SD extracting individual files according to filtering criteria
     :param s_zip_path: Full path to ZIP file containing original files
@@ -457,8 +483,8 @@ def build_sd_fromzip(d_zip_bd: dict[str, Any], l_kinds: list[str],
                             if not os.path.isdir(s_dest):
                                 pathlib.Path(s_dest).mkdir(parents=True,
                                                            exist_ok=True)
-                            s_dest: str = os.path.join(s_dest,
-                                                       d_zip_files[s_orig]['file'])
+                            s_dest: str = os.path.join(
+                                s_dest, d_zip_files[s_orig]['file'])
                             b_ok = chk_or_extract(s_orig, s_dest, s_hash,
                                                   i_size, s_zip_path)
         else:
@@ -509,6 +535,44 @@ def build_arcade_sd_fromdb(s_dir: str, d_db_params: dict[str, Any],
                     os.path.join(s_outdir, 'JOTEGO'), s_mras_path, s_roms_path,
                     s_dir)
 
+    return True
+
+
+def build_autoboot(s_dir: str, s_autoboot, s_outdir: str) -> bool:
+    """
+    Builds file and exdos configuration to autoboot
+    :param sdir: BAS files directory
+    :param s_autoboot: Name of the BAS file to use
+    :param s_outdir: Base directory where the SD files are created
+    :return: True if everything is done correctly
+    """
+    s_autoboot_bin: str = f'AUTOBOOT_{s_autoboot}.BAS'.upper()
+    print('Configuring autoboot...')
+
+    chk_or_download_autoboot(s_autoboot_bin, s_dir)
+    try:
+        shutil.copyfile(os.path.join(s_dir, s_autoboot_bin),
+                        os.path.join(s_outdir, 'SYS', 'AUTOBOOT.BAS'))
+    except OSError as err:
+        LOGGER.error(err)
+        return False
+
+    s_config_path = os.path.join(s_outdir, 'SYS', 'CONFIG', 'ESXDOS.CFG')
+    s_config: str = ''
+    with open(s_config_path, 'r', encoding='ascii') as f_handle:
+        s_config = f_handle.read()
+
+    s_configured: str = ''
+    for s_line in s_config.split('\n'):
+        if s_line.lower().startswith('autoboot='):
+            s_line = 'Autoboot=3'
+        LOGGER.debug(s_line)
+        s_configured += (f'{s_line}\n')
+
+    with open(s_config_path, 'w', encoding='ascii') as f_handle:
+        f_handle.write(s_configured)
+
+    LOGGER.debug(s_configured)
     return True
 
 
@@ -828,6 +892,32 @@ def chk_or_download_mrabin(s_mrabin_dirpath: str,
             s_mra_binpath = ''
 
     return s_mra_binpath
+
+
+def chk_or_download_autoboot(s_autobootbin: str,
+                             s_autoboot_path: str,
+                             b_force: bool = False) -> bool:
+    """
+    Download autoboot BAS file if does not exist
+    :param s_mra_dirpath: Path to dir where the file should be
+    :param b_force: If True, delete an existing file and download again
+    :return: True if the file exists or is downloaded
+    """
+
+    b_ok: bool = True
+    s_autobootbin_binurl: str = 'https://github.com/kounch/ZX3_Downloader/raw/'
+    s_autobootbin_binurl += '3880fa9eb12e23d760499aad83a3e056a072776b/Autoboot/'
+
+    s_binpath: str = os.path.join(s_autoboot_path, s_autobootbin)
+    s_binurl = urljoin(s_autobootbin_binurl, s_autobootbin)
+
+    if not os.path.isfile(s_binpath):
+        b_ok = chk_or_download(s_autoboot_path,
+                               s_autobootbin,
+                               s_url=s_binurl,
+                               b_force=b_force)
+
+    return b_ok
 
 
 def chk_or_download(s_path: str,
