@@ -59,21 +59,21 @@ If something happens that interrupts the download of files, it is recommended to
 
 The script has the following parameters:
 
-  -v, --version         show program's version number and exit
-  -c, --clean_sd        Make a clean build erasing all files at the destination
-  -C CACHE_DIR, --cache_dir CACHE_DIR
-                        Cache directory name and location
-  -O OUT_DIR, --out_dir OUT_DIR
-                        Output directory name and location
-  -K, --keep            Keep previous existing files and directories
-  -k KINDS, --kinds KINDS
-                        List of kinds of fpgas to consider
-  -t TYPES, --types TYPES
-                        List of types of core files to include (BIT, ZX3)
-  -T TAGS, --tags TAGS  List of catetgory content tags to include  (arcade,
-                        console, computer, util)
-  -g, --group_types     Group core files by file type
-  -G, --group_tags      Group core files by tag
+    -v, --version         show program's version number and exit
+    -c, --clean_sd        Make a clean build erasing all files at the destination
+    -C CACHE_DIR, --cache_dir CACHE_DIR
+                          Cache directory name and location
+    -O OUT_DIR, --out_dir OUT_DIR
+                          Output directory name and location
+    -K, --keep            Keep previous existing files and directories
+    -k KINDS, --kinds KINDS
+                          List of kinds of fpgas to consider
+    -t TYPES, --types TYPES
+                          List of types of core files to include (BIT, ZX3)
+    -T TAGS, --tags TAGS  List of category content tags to include  (arcade,
+                          console, computer, util)
+    -g, --group_types     Group core files by file type
+    -G, --group_tags      Group core files by tag
 
 ---
 
@@ -120,23 +120,23 @@ Si se produjera alguna situación que interrumpa la descarga de ficheros, se rec
 
 El script tiene los siguientes parámetros:
 
-  -v, --version           Mostrar el número de versión del programa y salir
-  -c, --clean_sd          Borrar todos los ficheros en el destino y crear una SD limpia
-  -C CACHE_DIR, --cache_dir CACHE_DIR
-                          Cambiar la ubicación del directorio de la Caché
-  -O OUT_DIR, --out_dir OUT_DIR
-                          Cambiar el nombre y la ubicación del directorio de salida
-  -a, --force_arcade_db
-                          Fuerza la descarga de nuevo de la base de datos de Arcade almacenada en caché
-  -K, --keep              Intentar mantener los ficheros anteriores cuando sea posible
-  -k KINDS, --kinds KINDS
-                          Lista de tipos de FPGAs a considerar
-  -t TYPES, --types TYPES
-                          Lista de tipos de ficheros de core a incluir (bit, zx3)
-  -T TAGS, --tags TAGS    Lista de categorías de contenido a incluir (arcade, console,
-                          computer, util)
-  -g, --group_types       Agrupar los ficheros de core por tipo
-  -G, --group_tags        Agrupar los ficheros de core por tipo de contenido
+    -v, --version           Mostrar el número de versión del programa y salir
+    -c, --clean_sd          Borrar todos los ficheros en el destino y crear una SD limpia
+    -C CACHE_DIR, --cache_dir CACHE_DIR
+                            Cambiar la ubicación del directorio de la Caché
+    -O OUT_DIR, --out_dir OUT_DIR
+                            Cambiar el nombre y la ubicación del directorio de salida
+    -a, --force_arcade_db
+                            Fuerza la descarga de nuevo de la base de datos de Arcade almacenada en caché
+    -K, --keep              Intentar mantener los ficheros anteriores cuando sea posible
+    -k KINDS, --kinds KINDS
+                            Lista de tipos de FPGAs a considerar
+    -t TYPES, --types TYPES
+                            Lista de tipos de ficheros de core a incluir (bit, zx3)
+    -T TAGS, --tags TAGS    Lista de categorías de contenido a incluir (arcade, console,
+                            computer, util)
+    -g, --group_types       Agrupar los ficheros de core por tipo
+    -G, --group_tags        Agrupar los ficheros de core por tipo de contenido
 
 ---
 
