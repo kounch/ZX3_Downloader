@@ -89,7 +89,7 @@ def main():
             b_ok: bool = False
             if d_pack["type"] == "zip":
                 print(f'Checking/Building {d_pack["name"]} files from ZIP...')
-                b_ok = build_sd_fromdb(s_cache_path, d_pack, arg_data)
+                b_ok = build_sd_zip_fromdb(s_cache_path, d_pack, arg_data)
             elif d_pack["type"] == "files":
                 print(f'Checking/Building {d_pack["name"]} files...')
                 b_ok = build_sd_files_fromdb(s_cache_path, d_pack, arg_data)
@@ -355,7 +355,7 @@ def load_db(s_dirpath: str,
     return d_result
 
 
-def build_sd_fromdb(s_dir: str, d_db_params: dict[str, Any],
+def build_sd_zip_fromdb(s_dir: str, d_db_params: dict[str, Any],
                     d_params: dict[str, Any]) -> bool:
     """
     Builds SD from ZIP file using DB of URLs, etc.
@@ -506,7 +506,7 @@ def build_arcade_sd_fromdb(s_dir: str, d_db_params: dict[str, Any],
     s_roms_path: str = os.path.join(s_dir, 'roms')
     s_mras_path: str = os.path.join(s_dir, 'mra')
 
-    l_arcade_dbs = ['arcade_rom_db', 'mra_db', 'jtcores_db']
+    l_arcade_dbs = ['arcade_rom_db', 'mra_db', 'cores_db']
     d_arcade_dbs: dict[str, dict[str, Any]] = {}
     for db_key in l_arcade_dbs:
         db_value = d_db_params['dbs'][db_key]
@@ -521,17 +521,17 @@ def build_arcade_sd_fromdb(s_dir: str, d_db_params: dict[str, Any],
             sys.exit(2)
 
     print(f'* Checking {d_db_params["name"]} ZIP files cache...')
-    chk_zip_cache(d_arcade_dbs['arcade_rom_db'], d_arcade_dbs['jtcores_db'],
+    chk_zip_cache(d_arcade_dbs['arcade_rom_db'], d_arcade_dbs['cores_db'],
                   s_roms_path, False)
 
     print(f'* Checking {d_db_params["name"]} MRA files cache...')
     s_baseurl: str = d_db_params['mra_url']
     d_mras: dict[str, Any] = chk_mra_cache(d_arcade_dbs['mra_db'],
-                                           d_arcade_dbs['jtcores_db'],
+                                           d_arcade_dbs['cores_db'],
                                            s_mras_path, False, s_baseurl)
 
     print(f'* Building {d_db_params["name"]} ARC files...')
-    build_arc_files(d_mras, d_arcade_dbs['jtcores_db'],
+    build_arc_files(d_mras, d_arcade_dbs['cores_db'],
                     os.path.join(s_outdir, 'JOTEGO'), s_mras_path, s_roms_path,
                     s_dir)
 
