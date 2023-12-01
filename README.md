@@ -65,7 +65,9 @@ The script has the following parameters:
                           Cache directory name and location
     -O OUT_DIR, --out_dir OUT_DIR
                           Output directory name and location
-    -K, --keep            Keep previous existing files and directories
+    -E EXTRA_DIR, --extra_dir EXTRA_DIR
+                          Extra content directory name and location
+    -K, --keep            Try to keep previous existing files and directories
     -k KINDS, --kinds KINDS
                           List of kinds of fpgas to consider
     -t TYPES, --types TYPES
@@ -131,6 +133,8 @@ El script tiene los siguientes parámetros:
                             Cambiar el nombre y la ubicación del directorio de salida
     -a, --force_arcade_db
                             Fuerza la descarga de nuevo de la base de datos de Arcade almacenada en caché
+    -E EXTRA_DIR, --extra_dir EXTRA_DIR
+                            Nombre y ubicación de un directorio con contenido extra
     -K, --keep              Intentar mantener los ficheros anteriores cuando sea posible
     -k KINDS, --kinds KINDS
                             Lista de tipos de FPGAs a considerar

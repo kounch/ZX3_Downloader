@@ -29,7 +29,7 @@ import shutil
 import subprocess
 import time
 
-__MY_VERSION__ = '0.0.2'
+__MY_VERSION__ = '1.0.0'
 
 MY_BASEPATH: str = os.path.dirname(sys.argv[0])
 MY_DIRPATH: str = os.path.abspath(MY_BASEPATH)
@@ -54,7 +54,6 @@ def main():
     """Main routine"""
 
     arg_data: dict[str, Any] = parse_args()
-    LOGGER.debug('Starting up...')
 
     s_cache_path: str = arg_data['cache_dir']
     s_out_path: str = arg_data['out_dir']
@@ -109,7 +108,59 @@ def main():
         b_ok = build_autoboot(os.path.join(MY_DIRPATH, 'Autoboot'),
                               arg_data['autoboot'], s_out_path)
 
+    # Extra content
+    if arg_data['extra_dir']:
+        if os.path.isdir(arg_data['extra_dir']):
+            print(f'Copying extra files from {arg_data["extra_dir"]}...')
+            copy_extra_files(pathlib.Path(arg_data['extra_dir']),
+                             pathlib.Path(arg_data['extra_dir']),
+                             pathlib.Path(s_out_path))
+
     print("Finished")
+
+
+def copy_extra_files(base_path: pathlib.Path, input_path: pathlib.Path,
+                     dest_path: pathlib.Path):
+    """
+    Recursive analysis of files and directories
+    :param base_path: Path to take as base to get relative directories
+    :param input_path: Path to analyze (subpath of base_path)
+    :dest_dir: Path of destination directory
+    """
+
+    if input_path.is_dir():
+        try:
+            for child in input_path.iterdir():
+                chld_path = pathlib.Path(base_path, input_path, child)
+                if chld_path.is_file():
+                    copy_extra_file(base_path, chld_path, dest_path)
+                elif chld_path.is_dir():
+                    copy_extra_files(base_path, chld_path, dest_path)
+        except PermissionError:
+            LOGGER.error('Permission Error on %s', input_path)
+    else:
+        copy_extra_file(base_path, input_path, dest_path)
+
+
+def copy_extra_file(base_path: pathlib.Path, input_file: pathlib.Path,
+                    dest_dir: pathlib.Path):
+    """
+    Analyze file paths and try to copy
+    :param base_path: Path to take as base to get relative directories
+    :param input_file: Path of file to copy (subpath of base_path)
+    :dest_dir: Path of destination directory
+    """
+
+    s_path: str = str(input_file).split(str(base_path))[1]
+    s_fpath = str(dest_dir) + s_path
+    s_path = os.path.dirname(s_fpath)
+    if not os.path.isdir(s_path):
+        pathlib.Path(s_path).mkdir(parents=True, exist_ok=True)
+    LOGGER.debug('Copy %s to %s', input_file, dest_dir)
+    try:
+        shutil.copyfile(input_file, s_fpath)
+    except OSError as err:
+        LOGGER.error(err)
 
 
 def parse_args() -> dict[str, Any]:
@@ -123,6 +174,7 @@ def parse_args() -> dict[str, Any]:
     values['clean_sd'] = False
     values['cache_dir'] = os.path.join(MY_DIRPATH, 'cache')
     values['out_dir'] = os.path.join(MY_DIRPATH, 'SD')
+    values['extra_dir'] = os.path.join(MY_DIRPATH, 'extra')
     values['kinds'] = []
     values['types'] = ['bit', 'zx3']
     values['tags'] = ['arcade', 'console', 'computer', 'util']
@@ -158,6 +210,13 @@ def parse_args() -> dict[str, Any]:
                         action='store',
                         dest='out_dir',
                         help='Output directory name and location')
+
+    parser.add_argument('-E',
+                        '--extra_dir',
+                        required=False,
+                        action='store',
+                        dest='extra_dir',
+                        help='Extra directory name and location')
 
     parser.add_argument('-K',
                         '--keep',
@@ -224,7 +283,6 @@ def parse_args() -> dict[str, Any]:
 
     if arguments.debug:
         LOGGER.setLevel(logging.DEBUG)
-    LOGGER.debug(sys.argv)
 
     if arguments.clean_sd:
         values['clean_sd'] = arguments.clean_sd
@@ -234,6 +292,13 @@ def parse_args() -> dict[str, Any]:
 
     if arguments.out_dir:
         values['out_dir'] = os.path.abspath(arguments.out_dir)
+
+    if arguments.extra_dir:
+        if os.path.isdir(arguments.extra_dir):
+            values['extra_dir'] = os.path.abspath(arguments.extra_dir)
+        else:
+            LOGGER.error('Extra dir %s not found!', arguments.extra_dir)
+            values['extra_dir'] = None
 
     if arguments.keep:
         values['keep'] = True
@@ -328,8 +393,8 @@ def load_db(s_dirpath: str,
         os.remove(s_jsonzip)
 
     if not os.path.isfile(s_json):
-        b_ok: bool = chk_or_download(s_dirpath, s_zipname, s_hash, i_size,
-                                     urljoin(s_urlbase, s_zipname))
+        b_ok: bool = chk_or_obtain(s_jsonzip, s_hash, i_size,
+                                   urljoin(s_urlbase, s_zipname))
         if not b_ok:
             print(f'{s_name} Bad file!')
 
@@ -338,16 +403,14 @@ def load_db(s_dirpath: str,
         with open(s_json, 'r', encoding='utf-8') as json_handle:
             LOGGER.debug('Loading database...')
             d_result = json.load(json_handle)
-            LOGGER.debug('%s loaded OK', s_name)
     elif is_zipfile(s_jsonzip):
         with ZipFile(s_jsonzip, "r") as z_handle:
             for s_filename in z_handle.namelist():
                 if s_filename == s_name:
-                    LOGGER.debug('Loading Arcade DB...')
+                    LOGGER.debug('Loading Arcade DB %s...', s_jsonzip)
                     with z_handle.open(s_filename) as json_handle:
                         json_data: bytes = json_handle.read()
                         d_result = json.loads(json_data.decode("utf-8"))
-                    LOGGER.debug('%s loaded OK', s_jsonzip)
                     break
     else:
         print(f'{s_name} Not found or not in a ZIP file!')
@@ -356,7 +419,7 @@ def load_db(s_dirpath: str,
 
 
 def build_sd_zip_fromdb(s_dir: str, d_db_params: dict[str, Any],
-                    d_params: dict[str, Any]) -> bool:
+                        d_params: dict[str, Any]) -> bool:
     """
     Builds SD from ZIP file using DB of URLs, etc.
     :param s_dir: Path where DB file is to be found or downloaded
@@ -379,8 +442,9 @@ def build_sd_zip_fromdb(s_dir: str, d_db_params: dict[str, Any],
     s_content: str = s_base_url.split('/')[-1]
 
     LOGGER.debug('Checking files (for %s DB)...', s_name)
-    b_content: bool = chk_or_download(s_dir, s_content, d_db['base_hash'],
-                                      d_db['base_size'], s_base_url)
+    b_content: bool = chk_or_obtain(os.path.join(s_dir,
+                                                 s_content), d_db['base_hash'],
+                                    d_db['base_size'], s_base_url)
     if not b_content:
         LOGGER.error('Unable to obtain files for %s DB...', s_name)
         sys.exit(2)
@@ -485,11 +549,18 @@ def build_sd_fromzip(d_zip_bd: dict[str, Any], l_kinds: list[str],
                                                            exist_ok=True)
                             s_dest: str = os.path.join(
                                 s_dest, d_zip_files[s_orig]['file'])
-                            b_ok = chk_or_extract(s_orig, s_dest, s_hash,
-                                                  i_size, s_zip_path)
+                            b_ok = chk_or_obtain(s_dest,
+                                                 s_hash,
+                                                 i_size,
+                                                 s_zip_path=s_zip_path,
+                                                 s_orig=s_orig)
         else:
             s_dest: str = os.path.join(s_dest, d_zip_files[s_orig]['file'])
-            b_ok = chk_or_extract(s_orig, s_dest, s_hash, i_size, s_zip_path)
+            b_ok = chk_or_obtain(s_dest,
+                                 s_hash,
+                                 i_size,
+                                 s_zip_path=s_zip_path,
+                                 s_orig=s_orig)
 
     return b_ok
 
@@ -566,13 +637,11 @@ def build_autoboot(s_dir: str, s_autoboot, s_outdir: str) -> bool:
     for s_line in s_config.split('\n'):
         if s_line.lower().startswith('autoboot='):
             s_line = 'AutoBoot=3'
-        LOGGER.debug(s_line)
         s_configured += (f'{s_line}\n')
 
     with open(s_config_path, 'w', encoding='ascii') as f_handle:
         f_handle.write(s_configured)
 
-    LOGGER.debug(s_configured)
     return True
 
 
@@ -595,10 +664,11 @@ def chk_zip_cache(d_arcade_db: dict[str, Any], d_cores_db: dict[str, Any],
         for i_item in d_files[s_file]['tags']:
             for j_item in d_tags:
                 if d_tags[j_item] == i_item and j_item in d_cores_db:
-                    b_ok = chk_or_download(s_roms_path, s_name,
-                                           d_files[s_file]['hash'],
-                                           d_files[s_file]['size'],
-                                           d_files[s_file]['url'], b_force)
+                    b_ok = chk_or_obtain(os.path.join(s_roms_path, s_name),
+                                         d_files[s_file]['hash'],
+                                         d_files[s_file]['size'],
+                                         d_files[s_file]['url'],
+                                         b_force=b_force)
                     if not b_ok:
                         print(f'{s_name} Bad file!')
 
@@ -648,10 +718,11 @@ def chk_files_cache(d_files_db: dict[str, Any], l_kind: list[str],
                 if l_files_subpath:
                     s_file_path = os.path.join(s_file_path,
                                                os.path.join(*l_files_subpath))
-                b_ok = chk_or_download(s_file_path, s_name,
-                                       d_files[s_file]['hash'],
-                                       d_files[s_file]['size'],
-                                       d_files[s_file]['url'], b_force)
+                b_ok = chk_or_obtain(os.path.join(s_file_path, s_name),
+                                     d_files[s_file]['hash'],
+                                     d_files[s_file]['size'],
+                                     d_files[s_file]['url'],
+                                     b_force=b_force)
                 if not b_ok:
                     print(f'{s_name} Bad file!')
 
@@ -781,10 +852,11 @@ def chk_mra_cache(d_mra_db: dict[str, Any], d_cores_db: dict[str, Any],
                         if not s_tagitem in d_mras:
                             d_mras[s_tagitem] = []
                         d_mras[s_tagitem].append(s_name)
-                        b_ok = chk_or_download(s_mras_path, s_name,
-                                               d_files[s_file]['hash'],
-                                               d_files[s_file]['size'],
-                                               s_baseurl + s_name, b_force)
+                        b_ok = chk_or_obtain(os.path.join(s_mras_path, s_name),
+                                             d_files[s_file]['hash'],
+                                             d_files[s_file]['size'],
+                                             s_baseurl + s_name,
+                                             b_force=b_force)
                         if not b_ok:
                             print(f'{s_name} Bad file!')
 
@@ -834,7 +906,6 @@ def build_arc_files(d_mras: dict[str, Any], d_cores_db: dict[str, Any],
                         s_arc_path, '-a',
                         s_arc_name.upper(), s_mra_path
                     ]
-                    LOGGER.debug(' '.join(l_mra_params))
                     run_process(l_mra_params, s_submra)
 
                 if s_subdir_arc != '':
@@ -847,7 +918,6 @@ def build_arc_files(d_mras: dict[str, Any], d_cores_db: dict[str, Any],
                     s_mra_binpath, '-A', '-z', s_roms_path, '-O', s_arc_path,
                     s_mra_path
                 ]
-                LOGGER.debug(' '.join(l_mra_params))
                 run_process(l_mra_params, s_submra)
 
 
@@ -881,10 +951,9 @@ def chk_or_download_mrabin(s_mrabin_dirpath: str,
     s_mra_binurl = urljoin(s_mra_binurl, s_mra_binname)
 
     if not os.path.isfile(s_mra_binpath):
-        b_ok = chk_or_download(s_mrabin_dirpath,
-                               s_mra_binname,
-                               s_url=s_mra_binurl,
-                               b_force=b_force)
+        b_ok = chk_or_obtain(s_mra_binpath,
+                             s_url=s_mra_binurl,
+                             b_force=b_force)
         time.sleep(15)  # Give Windows some time to check the file
         if sys.platform != 'win32':
             run_process(['chmod', 'a+x', s_mra_binpath], 'mra tool binary')
@@ -912,51 +981,44 @@ def chk_or_download_autoboot(s_autobootbin: str,
     s_binurl = urljoin(s_autobootbin_binurl, s_autobootbin)
 
     if not os.path.isfile(s_binpath):
-        b_ok = chk_or_download(s_autoboot_path,
-                               s_autobootbin,
-                               s_url=s_binurl,
-                               b_force=b_force)
-
+        b_ok = chk_or_obtain(s_binpath, s_url=s_binurl, b_force=b_force)
     return b_ok
 
 
-def chk_or_download(s_path: str,
-                    s_name: str,
-                    s_hash: str = '',
-                    i_size: int = 0,
-                    s_url: str = '',
-                    b_force: bool = False) -> bool:
+def chk_or_obtain(s_fpath: str,
+                  s_hash: str = '',
+                  i_size: int = 0,
+                  s_url: str = '',
+                  s_zip_path: str = '',
+                  s_orig: str = '',
+                  b_force: bool = False) -> bool:
     """
-    Download a file if does not exist and, optionally check hash
-    :param s_path: Path to dir where the file should be
-    :param s_name: File name
-    :param s_hash: Optional MD5 hash to check
-    :param i_size: Optional size (bytes) to check
+    Download a file from a URL or extract a file from inside a ZIP archive if
+    it does not exist and, optionally, check hash and size
+    :param s_fpath: File path of the obtained file
+    :param s_hash: MD5 hash to check
+    :param i_size: Size (bytes) to check
     :param s_url : Optional URL to download from
+    :param s_zip_path: Path to the ZIP archive file
+    :param s_orig: Path to where the file should be inside the ZIP archive
     :param b_force: If True, delete an existing file and download again
-    :return: Boolean indicating download, check, etc. where all ok
+    :return: Boolean indicating download or extraction, check, etc. where all ok
     """
 
     b_ok: bool = True
 
+    s_name: str = s_fpath.split('/')[-1]
+    s_path: str = os.path.dirname(s_fpath)
     if not os.path.isdir(s_path):
         pathlib.Path(s_path).mkdir(parents=True, exist_ok=True)
-
-    s_fpath: str = os.path.join(s_path, s_name)
 
     if b_force and os.path.isfile(s_fpath):
         os.remove(s_fpath)
 
-    if os.path.isfile(s_fpath):
-        if s_hash != '':
-            i_fsize: int = os.stat(s_fpath).st_size
-            LOGGER.debug('%s exists, checking...', s_name)
-            s_hashcheck: str = get_file_hash(s_fpath)
-            if s_hash == s_hashcheck and i_fsize == i_size:
-                LOGGER.debug('%s is OK!', s_name)
-            else:
-                LOGGER.debug('%s wrong hash. Replacing...', s_name)
-                os.remove(s_fpath)
+    b_ok = chk_file_hash(s_fpath, s_hash, i_size, s_name)
+    if not b_ok and os.path.isfile(s_fpath):
+        LOGGER.debug('%s wrong hash. Replacing...', s_name)
+        os.remove(s_fpath)
 
     if not os.path.isfile(s_fpath):
         if s_url != '':
@@ -976,78 +1038,43 @@ def chk_or_download(s_path: str,
             except URLError as error:
                 LOGGER.error('Connection error: %s! %s', s_url, error)
                 b_ok = False
-        else:
-            LOGGER.error('%s not found!', s_name)
-            b_ok = False
-
-    if os.path.isfile(s_fpath):
-        if s_hash != '' and i_size != 0:
-            i_fsize: int = os.stat(s_fpath).st_size
-            LOGGER.debug('%s downloaded, checking...', s_name)
-            s_hashcheck: str = get_file_hash(s_fpath)
-            if s_hash == s_hashcheck and i_fsize == i_size:
-                LOGGER.debug('%s is OK!', s_name)
-            else:
-                LOGGER.error('%s wrong file!', s_name)
-                b_ok = False
-    else:
-        LOGGER.error('Error downloading %s!', s_name)
-        b_ok = False
-
-    return b_ok
-
-
-def chk_or_extract(s_orig: str, s_fpath: str, s_hash: str, i_size: int,
-                   s_zip_path: str) -> bool:
-    """
-    Extract a file from inside a ZIP archive if does not exist and, optionally,
-    check hash
-    :param s_orig: Path to where the file should be inside the ZIP archive
-    :param s_fpath: File path of the extracted file
-    :param s_hash: MD5 hash to check
-    :param i_size: Size (bytes) to check
-    :param s_zip_path: Path to the ZIP archive file
-    :return: Boolean indicating extraction, check, etc. where all ok
-    """
-    b_ok: bool = True
-
-    s_name: str = s_fpath.split('/')[-1]
-    s_path: str = os.path.dirname(s_fpath)
-    if not os.path.isdir(s_path):
-        pathlib.Path(s_path).mkdir(parents=True, exist_ok=True)
-
-    if os.path.isfile(s_fpath):
-        if s_hash != '':
-            i_fsize: int = os.stat(s_fpath).st_size
-            LOGGER.debug('%s exists, checking...', s_name)
-            s_hashcheck: str = get_file_hash(s_fpath)
-            if s_hash == s_hashcheck and i_fsize == i_size:
-                LOGGER.debug('%s is OK!', s_name)
-            else:
-                LOGGER.debug('%s wrong hash. Replacing...', s_name)
-                os.remove(s_fpath)
-
-    if not os.path.isfile(s_fpath):
-        if s_zip_path != '':
+        elif s_zip_path != '':
             LOGGER.debug('Extracting %s...', s_orig)
             with ZipFile(s_zip_path, "r") as z_handle:
                 with z_handle.open(s_orig) as member:
                     with open(s_fpath, 'wb') as outfile:
                         shutil.copyfileobj(member, outfile)
                     b_ok = True
+        else:
+            LOGGER.error('%s not found!', s_name)
+            b_ok = False
 
+    b_ok = chk_file_hash(s_fpath, s_hash, i_size, s_name)
+    if not b_ok:
+        LOGGER.error('Could not obtain file: %s!', s_name)
+
+    return b_ok
+
+
+def chk_file_hash(s_fpath: str, s_hash: str, i_size: int, s_name) -> bool:
+    """
+    Check file hash and size if it exists
+    :param s_fpath: File path of the obtained file
+    :param s_hash: MD5 hash to check
+    :param i_size: Size (bytes) to check
+    :param s_name: Text to show filename on errors and logs
+    :return: True if file exists, hash and size are correct
+    """
+    b_ok: bool = True
     if os.path.isfile(s_fpath):
         if s_hash != '' and i_size != 0:
             i_fsize: int = os.stat(s_fpath).st_size
-            LOGGER.debug('%s extracted, checking...', s_name)
+            LOGGER.debug('%s obtained, checking...', s_name)
             s_hashcheck: str = get_file_hash(s_fpath)
-            if s_hash == s_hashcheck and i_fsize == i_size:
-                LOGGER.debug('%s is OK!', s_name)
-            else:
+            if s_hash != s_hashcheck or i_fsize != i_size:
                 LOGGER.error('%s wrong file!', s_name)
                 b_ok = False
     else:
-        LOGGER.error('Error extracting %s!', s_name)
         b_ok = False
 
     return b_ok
