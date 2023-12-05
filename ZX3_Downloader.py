@@ -23,13 +23,13 @@ import ssl
 from zipfile import ZipFile, is_zipfile
 import urllib.request
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse, quote, unquote, urljoin
+from urllib.parse import urlparse, quote, unquote, urljoin, ParseResult
 import socket
 import shutil
 import subprocess
 import time
 
-__MY_VERSION__ = '1.0.0'
+__MY_VERSION__ = '1.0.1'
 
 MY_BASEPATH: str = os.path.dirname(sys.argv[0])
 MY_DIRPATH: str = os.path.abspath(MY_BASEPATH)
@@ -64,7 +64,7 @@ def main():
             shutil.rmtree(s_out_path)
 
     print('Checking Main DB...')
-    s_urlbase = 'https://github.com/kounch/ZX3_Downloader/raw/bd/'
+    s_urlbase: str = 'https://github.com/kounch/ZX3_Downloader/raw/bd/'
     d_main_db: dict[str, Any] = load_db(s_cache_path,
                                         'zx3_main_db.json',
                                         s_urlbase,
@@ -73,10 +73,10 @@ def main():
         LOGGER.error('Unable to obtain main DB file...')
         sys.exit(2)
 
-    d_tags = d_main_db['tag_dictionary']
+    d_tags: dict[str, Any] = d_main_db['tag_dictionary']
     for s_pack, d_pack in d_main_db['packs'].items():
         LOGGER.debug('Processing %s', s_pack)
-        b_do_pack = True
+        b_do_pack: bool = True
         if d_pack['tags']:
             b_do_pack = False
             for i_tg in d_tags:
@@ -99,7 +99,7 @@ def main():
                 LOGGER.error("Error building %s files", d_pack["name"])
 
     # TMP for esxdos
-    s_tmp_path = os.path.join(s_out_path, 'TMP')
+    s_tmp_path: str = os.path.join(s_out_path, 'TMP')
     if not os.path.isdir(s_tmp_path):
         pathlib.Path(s_tmp_path).mkdir(parents=True, exist_ok=True)
 
@@ -131,7 +131,8 @@ def copy_extra_files(base_path: pathlib.Path, input_path: pathlib.Path,
     if input_path.is_dir():
         try:
             for child in input_path.iterdir():
-                chld_path = pathlib.Path(base_path, input_path, child)
+                chld_path: pathlib.Path = pathlib.Path(base_path, input_path,
+                                                       child)
                 if chld_path.is_file():
                     copy_extra_file(base_path, chld_path, dest_path)
                 elif chld_path.is_dir():
@@ -152,8 +153,8 @@ def copy_extra_file(base_path: pathlib.Path, input_file: pathlib.Path,
     """
 
     s_path: str = str(input_file).split(str(base_path))[1]
-    s_fpath = str(dest_dir) + s_path
-    s_path = os.path.dirname(s_fpath)
+    s_fpath: str = str(dest_dir) + s_path
+    s_path: str = os.path.dirname(s_fpath)
     if not os.path.isdir(s_path):
         pathlib.Path(s_path).mkdir(parents=True, exist_ok=True)
     LOGGER.debug('Copy %s to %s', input_file, dest_dir)
@@ -307,7 +308,7 @@ def parse_args() -> dict[str, Any]:
         values['kinds'] = []
         all_kinds: list[str] = ['a35t', 'a100t', 'a200t']
         for s_kinds in arguments.kinds:
-            l_kinds = s_kinds.split(',')
+            l_kinds: list[str] = s_kinds.split(',')
             for s_kind in l_kinds:
                 if s_kind.lower() in all_kinds:
                     values['kinds'].append(s_kind.lower())
@@ -318,7 +319,7 @@ def parse_args() -> dict[str, Any]:
         all_types: list[str] = values['types']
         values['types'] = []
         for s_types in arguments.types:
-            l_types = s_types.split(',')
+            l_types: list[str] = s_types.split(',')
             for s_type in l_types:
                 if s_type.lower() in all_types:
                     values['types'].append(s_type.lower())
@@ -329,7 +330,7 @@ def parse_args() -> dict[str, Any]:
         all_tags: list[str] = values['tags']
         values['tags'] = []
         for s_tags in arguments.tags:
-            l_tags = s_tags.split(',')
+            l_tags: list[str] = s_tags.split(',')
             for s_tag in l_tags:
                 if s_tag.lower() in all_tags:
                     values['tags'].append(s_tag.lower())
@@ -577,14 +578,14 @@ def build_arcade_sd_fromdb(s_dir: str, d_db_params: dict[str, Any],
     s_roms_path: str = os.path.join(s_dir, 'roms')
     s_mras_path: str = os.path.join(s_dir, 'mra')
 
-    l_arcade_dbs = ['arcade_rom_db', 'mra_db', 'cores_db']
+    l_arcade_dbs: list[str] = ['arcade_rom_db', 'mra_db', 'cores_db']
     d_arcade_dbs: dict[str, dict[str, Any]] = {}
     for db_key in l_arcade_dbs:
         db_value = d_db_params['dbs'][db_key]
         s_name: str = db_value['file']
         s_urlbase: str = db_value['url']
-        s_hash = db_value['hash']
-        i_size = db_value['size']
+        s_hash: str = db_value['hash']
+        i_size: int = db_value['size']
         d_arcade_dbs[db_key] = load_db(s_dir, s_name, s_urlbase, s_hash,
                                        i_size, False)
         if not d_arcade_dbs[db_key]:
@@ -628,7 +629,7 @@ def build_autoboot(s_dir: str, s_autoboot, s_outdir: str) -> bool:
         LOGGER.error(err)
         return False
 
-    s_config_path = os.path.join(s_outdir, 'SYS', 'CONFIG', 'ESXDOS.CFG')
+    s_config_path: str = os.path.join(s_outdir, 'SYS', 'CONFIG', 'ESXDOS.CFG')
     s_config: str = ''
     with open(s_config_path, 'r', encoding='ascii') as f_handle:
         s_config = f_handle.read()
@@ -664,11 +665,12 @@ def chk_zip_cache(d_arcade_db: dict[str, Any], d_cores_db: dict[str, Any],
         for i_item in d_files[s_file]['tags']:
             for j_item in d_tags:
                 if d_tags[j_item] == i_item and j_item in d_cores_db:
-                    b_ok = chk_or_obtain(os.path.join(s_roms_path, s_name),
-                                         d_files[s_file]['hash'],
-                                         d_files[s_file]['size'],
-                                         d_files[s_file]['url'],
-                                         b_force=b_force)
+                    b_ok: bool = chk_or_obtain(os.path.join(
+                        s_roms_path, s_name),
+                                               d_files[s_file]['hash'],
+                                               d_files[s_file]['size'],
+                                               d_files[s_file]['url'],
+                                               b_force=b_force)
                     if not b_ok:
                         print(f'{s_name} Bad file!')
 
@@ -713,16 +715,16 @@ def chk_files_cache(d_files_db: dict[str, Any], l_kind: list[str],
                             b_download = True
 
             if b_download:
-                s_file_path = s_files_path
-                l_files_subpath = d_files[s_file].get('path', [])
+                s_file_path: str = s_files_path
+                l_files_subpath: list[str] = d_files[s_file].get('path', [])
                 if l_files_subpath:
                     s_file_path = os.path.join(s_file_path,
                                                os.path.join(*l_files_subpath))
-                b_ok = chk_or_obtain(os.path.join(s_file_path, s_name),
-                                     d_files[s_file]['hash'],
-                                     d_files[s_file]['size'],
-                                     d_files[s_file]['url'],
-                                     b_force=b_force)
+                b_ok: bool = chk_or_obtain(os.path.join(s_file_path, s_name),
+                                           d_files[s_file]['hash'],
+                                           d_files[s_file]['size'],
+                                           d_files[s_file]['url'],
+                                           b_force=b_force)
                 if not b_ok:
                     print(f'{s_name} Bad file!')
 
@@ -759,7 +761,7 @@ def build_sd_files(d_files_db: dict[str, Any], l_kinds: list[str],
         s_name: str = s_file.split('/')[-1]
         s_sdpath: str = os.path.join(s_out_path, s_out_subpath)
         if d_tags:
-            s_kind = d_files[s_file].get('kind', '')
+            s_kind: str = d_files[s_file].get('kind', '')
             if s_kind in l_kinds and d_files[s_file][
                     'type'] in l_types:  # Fully tagged item, copy if tag matches
                 if b_typegroups:
@@ -785,7 +787,8 @@ def build_sd_files(d_files_db: dict[str, Any], l_kinds: list[str],
                 for i_item in d_files[s_file]['tags']:
                     for j_item in d_tags:
                         if d_tags[j_item] == i_item and j_item in l_tags:
-                            l_subpath = d_files[s_file].get("path", [])
+                            l_subpath: list[str] = d_files[s_file].get(
+                                "path", [])
                             s_orig: str = s_files_path
                             if l_subpath:
                                 s_orig = os.path.join(s_orig,
@@ -890,7 +893,7 @@ def build_arc_files(d_mras: dict[str, Any], d_cores_db: dict[str, Any],
 
             for s_submra in l_mra:
                 s_mra_path: str = os.path.join(s_mras_path, s_submra)
-                default_mra = d_cores_db[s_basename_arc]['default_mra']
+                default_mra: str = d_cores_db[s_basename_arc]['default_mra']
                 l_mra_params: list[str] = []
 
                 s_arc_path: str = s_out_path
@@ -978,7 +981,7 @@ def chk_or_download_autoboot(s_autobootbin: str,
     s_autobootbin_binurl += '3880fa9eb12e23d760499aad83a3e056a072776b/Autoboot/'
 
     s_binpath: str = os.path.join(s_autoboot_path, s_autobootbin)
-    s_binurl = urljoin(s_autobootbin_binurl, s_autobootbin)
+    s_binurl: str = urljoin(s_autobootbin_binurl, s_autobootbin)
 
     if not os.path.isfile(s_binpath):
         b_ok = chk_or_obtain(s_binpath, s_url=s_binurl, b_force=b_force)
@@ -1023,13 +1026,13 @@ def chk_or_obtain(s_fpath: str,
     if not os.path.isfile(s_fpath):
         if s_url != '':
             print(f'Downloading {s_name}...')
-            s_turl = unquote(s_url, encoding='utf-8', errors='replace')
+            s_turl: str = unquote(s_url, encoding='utf-8', errors='replace')
             if len(s_turl) == len(s_url):
-                s_turl = urlparse(s_url)
-                s_url = s_turl.scheme + "://" + s_turl.netloc + quote(
-                    s_turl.path)
-                if s_turl.query != '':
-                    s_url += "?" + quote(s_turl.query)
+                urlparse_t: ParseResult = urlparse(s_url)
+                s_url = urlparse_t.scheme + "://" + urlparse_t.netloc + quote(
+                    urlparse_t.path)
+                if urlparse_t.query != '':
+                    s_url += "?" + quote(urlparse_t.query)
 
             try:
                 urllib.request.urlretrieve(s_url, s_fpath)
@@ -1072,7 +1075,7 @@ def chk_file_hash(s_fpath: str, s_hash: str, i_size: int, s_name) -> bool:
             LOGGER.debug('%s obtained, checking...', s_name)
             s_hashcheck: str = get_file_hash(s_fpath)
             if s_hash != s_hashcheck or i_fsize != i_size:
-                LOGGER.error('%s wrong file!', s_name)
+                LOGGER.debug('%s wrong file!', s_name)
                 b_ok = False
     else:
         b_ok = False
@@ -1103,10 +1106,8 @@ def run_process(l_mra_params: list[str], s_item: str):
     :return: Nothing
     """
 
-    mra_process = subprocess.run(l_mra_params,
-                                 capture_output=True,
-                                 check=False,
-                                 encoding='utf8')
+    mra_process: subprocess.CompletedProcess = subprocess.run(
+        l_mra_params, capture_output=True, check=False, encoding='utf8')
     if mra_process.stdout != '':
         LOGGER.debug(mra_process.stdout)
     if mra_process.stderr != '':
