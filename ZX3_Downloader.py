@@ -978,13 +978,24 @@ def chk_or_download_autoboot(s_autobootbin: str,
 
     b_ok: bool = True
     s_autobootbin_binurl: str = 'https://github.com/kounch/ZX3_Downloader/raw/'
-    s_autobootbin_binurl += '3880fa9eb12e23d760499aad83a3e056a072776b/Autoboot/'
+    s_autobootbin_binurl += '4642df94d67e6384d20006665690d000f39dea41/Autoboot/'
+    d_autoboot: dict[str, tuple[str, int]] = {
+        'AUTOBOOT_BIT.BAS': ('58411f0a0c5f48adf6935734ad0ae63b', 337),
+        'AUTOBOOT_CORES.BAS': ('f780a4a6209f700594e9f5c2fbaae42b', 333),
+        'AUTOBOOT_ZX3.BAS': ('10731bb09ec48e11596249c10905b942', 337)
+    }
+    s_binhash: str = d_autoboot[s_autobootbin][0]
+    i_binsize: int = d_autoboot[s_autobootbin][1]
 
     s_binpath: str = os.path.join(s_autoboot_path, s_autobootbin)
     s_binurl: str = urljoin(s_autobootbin_binurl, s_autobootbin)
 
     if not os.path.isfile(s_binpath):
-        b_ok = chk_or_obtain(s_binpath, s_url=s_binurl, b_force=b_force)
+        b_ok = chk_or_obtain(s_binpath,
+                             s_url=s_binurl,
+                             s_hash=s_binhash,
+                             i_size=i_binsize,
+                             b_force=b_force)
     return b_ok
 
 
