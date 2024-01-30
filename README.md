@@ -180,5 +180,5 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 [Update All](https://github.com/theypsilon/Update_All_MiSTer) for [MiSTer](https://github.com/MiSTer-devel/Main_MiSTer/wiki)
 
-Copyright © 2020-2022, [José Manuel Barroso Galindo](https://twitter.com/josembarroso).
+Copyright © 2020-2024, [José Manuel Barroso Galindo](https://twitter.com/josembarroso).
 Released under the [GPL v3 License](LICENSE).
