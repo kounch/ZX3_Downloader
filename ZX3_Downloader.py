@@ -971,7 +971,8 @@ def chk_or_download_autoboot(s_autobootbin: str,
                              b_force: bool = False) -> bool:
     """
     Download autoboot BAS file if does not exist
-    :param s_mra_dirpath: Path to dir where the file should be
+    :param s_autobootbin: File name
+    :param s_autoboot_path: Path to dir where the file should be
     :param b_force: If True, delete an existing file and download again
     :return: True if the file exists or is downloaded
     """

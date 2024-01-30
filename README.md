@@ -27,27 +27,25 @@ These are the main features:
 - Downloads (if needed) [mra tool](https://github.com/kounch/mra-tools-c/tree/master/release) for the current OS (Mac, Windows or Linux)
 - Builds the SD structure
 
-### Software Requirements
+### Optional Software Requirements
 
-- **Python (version 3.9 or later)**. Docs, downloads, etc. [here](https://www.python.org/)
+- Only for the script release **Python (version 3.9 or later)** is needed. Docs, downloads, etc. [here](https://www.python.org/)
 
 ### Installation and Use
 
-Install Python 3. On Windows, it's recommended that `py launcher` is selected as an install option.
+Copy the binary file `ZX3_Downloader...` to a directory with enough available space (4.5GB, at least, if using the default options), and execute the script telling the kind of FPGA target (`a35t` for ZXTRES, `a100t` for ZXTRES+, `a200t` for ZXTRES++).
 
-Copy the file `ZX3_Downloader.py` to a directory with enough available space (4.5GB, at least, if using the default options), and execute the script indicating the kind of FPGA target (a35t for ZXTRES, a100t for ZXTRES+, a200t for ZXTRES++).
+For example, for ZXTRES++ on macOS
 
-For example, for ZXTRES++
-
-     python3 ZX3_Downloader.py -k a200t
+     ZX3_Downloader -k a200t
 
 On Windows
 
-     py -3 ZX3_Downloader.py -k a200t
+     ZX3_Downloader.exe -k a200t
 
-Or
+Or for the script on Windows (if Python is installed)
 
-    ..python.exe ZX3_Downloader.py -k a200t
+    ...python.exe ZX3_Downloader.py -k a200t
 
 This will create the file and directory structure including things like [esxdos](http://www.esxdos.org/index.html), [extra commands](https://github.com/zxtres/dot_commands), [cores](https://github.com/zxtres/cores), etc.
 
@@ -95,23 +93,23 @@ Sus características principales son:
 - Descarga (si fuera necesario) la [herramienta mra](https://github.com/kounch/mra-tools-c/tree/master/release) para el sistema operativo utilizado (Mac, Windows o Linux)
 - Construye la estructura de archivos para la SD
 
-### Software necesario
+### Software opcionalmente necesario
 
-- **Python (versión 3.9 o superior)**. Documentación, descarga, etc. [aquí](https://www.python.org/)
+- Para ejecutar el script, es necesario **Python (versión 3.9 o superior)**. Documentación, descarga, etc. [aquí](https://www.python.org/)
 
 ### Instalación y uso
 
-Instalar Python 3 para el sistema operativo correspondiente. En el caso de Windows, es interesante incluir `py launcher` en las opciones de instalación.
+Copiar el fichero binario `ZX3_Downloader...` en un directorio con suficiente espacio disponible (al menos, 4,5GB, si se usan las opciones por defecto), y ejecutar el script indicando el tipo de FPGA  (`a35t` para ZXTRES, `a100t` para ZXTRES+, `a200t` para ZXTRES++).
 
-Copiar el ficheros `ZX3_Downloader.py` en un directorio con suficiente espacio disponible (al menos, 4,5GB, si se usan las opciones por defecto), y ejecutar el script:
+Por ejemplo, en macOS
 
-    python3 ZX3_Downloader.py -k a200t
+    ZX3_Downloader -k a200t
 
 En Windows
 
-    py -3 ZX3_Downloader.py -k a200t
+    ZX3_Downloader.exe -k a200t
 
-o bien
+o bien para el script en Windows (si Python está instalado)
 
     ...python.exe ZX3_Downloader.py -k a200t
 
