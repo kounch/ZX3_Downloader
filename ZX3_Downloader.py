@@ -29,7 +29,7 @@ import shutil
 import subprocess
 import time
 
-__MY_VERSION__ = '1.0.1'
+__MY_VERSION__ = '1.0.3'
 
 MY_BASEPATH: str = os.path.dirname(sys.argv[0])
 MY_DIRPATH: str = os.path.abspath(MY_BASEPATH)
