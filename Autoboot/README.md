@@ -1,6 +1,6 @@
 # Autoboot for ZXTRES Cores
 
-Copyright (c) 2023, kounch
+Copyright (c) 2023-2024, kounch
 
 All rights reserved.
 
@@ -200,7 +200,7 @@ Donde *ruta* es /cores, /cores/bit o bien /cores/zx3
 
 BSD 2-Clause License
 
-Copyright (c) 2023, kounch
+Copyright (c) 2023-2024, kounch
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

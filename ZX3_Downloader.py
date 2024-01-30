@@ -3,7 +3,7 @@
 # -*- mode: Python; tab-width: 4; indent-tabs-mode: nil; -*-
 # Do not modify previous lines. See PEP 8, PEP 263.
 """
-Copyright (c) 2023, kounch
+Copyright (c) 2023-2024, kounch
 All rights reserved.
 
 SPDX-License-Identifier: BSD-2-Clause

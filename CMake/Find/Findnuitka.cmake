@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023 kounch
+# Copyright (c) 2022-2023-2024 kounch
 # SPDX-License-Identifier: BSD-2-Clause
 
 find_program(NUITKA_BINARY NAMES nuitka3

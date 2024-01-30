@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023 kounch
+# Copyright (c) 2023--2024 kounch
 # SPDX-License-Identifier: BSD-2-Clause
 
 cmake_minimum_required(VERSION 3.24)
