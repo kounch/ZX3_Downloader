@@ -70,6 +70,7 @@ The script has the following parameters:
                           List of kinds of fpgas to consider
     -t TYPES, --types TYPES
                           List of types of core files to include (BIT, ZX3)
+    -M, --mist_mode       Deploy bit files to mist directory
     -T TAGS, --tags TAGS  List of category content tags to include  (arcade,
                           console, computer, util)
     -g, --group_types     Group core files by file type
@@ -138,6 +139,7 @@ El script tiene los siguientes parámetros:
                             Lista de tipos de FPGAs a considerar
     -t TYPES, --types TYPES
                             Lista de tipos de ficheros de core a incluir (bit, zx3)
+    -M, --mist_mode         Desplegar los ficheros bit en el directorio mist
     -T TAGS, --tags TAGS    Lista de categorías de contenido a incluir (arcade, console,
                             computer, util)
     -g, --group_types       Agrupar los ficheros de core por tipo

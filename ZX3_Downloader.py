@@ -26,10 +26,10 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse, quote, unquote, urljoin, ParseResult
 import socket
 import shutil
-import subprocess
+from subprocess import run, CompletedProcess
 import time
 
-__MY_VERSION__ = '1.0.3'
+__MY_VERSION__ = '1.1.0'
 
 MY_BASEPATH: str = os.path.dirname(sys.argv[0])
 MY_DIRPATH: str = os.path.abspath(MY_BASEPATH)
@@ -178,6 +178,7 @@ def parse_args() -> dict[str, Any]:
     values['extra_dir'] = os.path.join(MY_DIRPATH, 'extra')
     values['kinds'] = []
     values['types'] = ['bit', 'zx3']
+    values['mist_mode'] = False
     values['tags'] = ['arcade', 'console', 'computer', 'util']
     values['group_types'] = False
     values['group_tags'] = False
@@ -239,6 +240,13 @@ def parse_args() -> dict[str, Any]:
                         action='append',
                         dest='types',
                         help='List of types of core files to include')
+
+    parser.add_argument('-M',
+                        '--mist_mode',
+                        required=False,
+                        action='store_true',
+                        dest='mist_mode',
+                        help='Deploy bit files to mist directory')
 
     parser.add_argument('-T',
                         '--tags',
@@ -311,7 +319,7 @@ def parse_args() -> dict[str, Any]:
             l_kinds: list[str] = s_kinds.split(',')
             for s_kind in l_kinds:
                 if s_kind.lower() in all_kinds:
-                    values['kinds'].append(s_kind.lower())
+                    values['kinds'].append(s_kind.lower())  # type: ignore
                 else:
                     LOGGER.error('Bad kind of FPGA: %s', s_kind)
 
@@ -322,9 +330,12 @@ def parse_args() -> dict[str, Any]:
             l_types: list[str] = s_types.split(',')
             for s_type in l_types:
                 if s_type.lower() in all_types:
-                    values['types'].append(s_type.lower())
+                    values['types'].append(s_type.lower())  # type: ignore
                 else:
                     LOGGER.error('Bad type of file: %s', s_type)
+
+    if arguments.mist_mode:
+        values['mist_mode'] = True
 
     if arguments.tags:
         all_tags: list[str] = values['tags']
@@ -333,18 +344,26 @@ def parse_args() -> dict[str, Any]:
             l_tags: list[str] = s_tags.split(',')
             for s_tag in l_tags:
                 if s_tag.lower() in all_tags:
-                    values['tags'].append(s_tag.lower())
+                    values['tags'].append(s_tag.lower())  # type: ignore
                 else:
                     LOGGER.error('Bad tag: %s', s_tag)
 
     if arguments.group_types:
         values['group_types'] = True
-        if arguments.autoboot:
-            l_boot_types: list[str] = values['types'] + ['cores']
-            if arguments.autoboot in l_boot_types:
-                values['autoboot'] = arguments.autoboot
-            else:
-                LOGGER.error('Bad boot type: %s', arguments.autoboot)
+
+    if arguments.autoboot:
+        values['autoboot'] = arguments.autoboot
+
+    l_boot_types: list[str] = ['cores']
+    if values['mist_mode']:
+        l_boot_types += ['mist']
+    if values['group_types']:
+        l_boot_types += values['types']
+
+    if values['autoboot']:
+        if values['autoboot'] not in l_boot_types:
+            LOGGER.error('Bad boot type: %s', values['autoboot'])
+            values['autoboot'] = ''
 
     if arguments.no_autoboot:
         values['autoboot'] = ''
@@ -452,8 +471,8 @@ def build_sd_zip_fromdb(s_dir: str, d_db_params: dict[str, Any],
 
     if s_content:
         LOGGER.debug('Copying files for SD from %s DB...', s_name)
-        b_ok = build_sd_fromzip(d_db, d_params['kinds'],
-                                d_params['types'], d_params['tags'],
+        b_ok = build_sd_fromzip(d_db, d_params['kinds'], d_params['types'],
+                                d_params['mist_mode'], d_params['tags'],
                                 os.path.join(s_dir, s_content),
                                 d_params['out_dir'], d_db_params['out_path'],
                                 d_params['group_tags'],
@@ -500,22 +519,30 @@ def build_sd_files_fromdb(s_path: str, d_db_params: dict[str, Any],
 
     LOGGER.debug('Copying Files for SD...')
     b_ok = build_sd_files(d_files_db, d_params['kinds'], d_params['types'],
-                          d_params['tags'], s_files_path, d_params['out_dir'],
-                          s_out_path, d_params['group_tags'],
-                          d_params['group_types'], b_keep)
+                          d_params['mist_mode'], d_params['tags'],
+                          s_files_path, d_params['out_dir'], s_out_path,
+                          d_params['group_tags'], d_params['group_types'],
+                          b_keep)
 
     return b_ok
 
 
 def build_sd_fromzip(d_zip_bd: dict[str, Any], l_kinds: list[str],
-                     l_types: list[str], l_tags: list[str], s_zip_path: str,
-                     s_out_path: str, s_out_subpath, b_taggroups: bool,
-                     b_typegroups: bool) -> bool:
+                     l_types: list[str], b_mist: bool, l_tags: list[str],
+                     s_zip_path: str, s_out_path: str, s_out_subpath: str,
+                     b_taggroups: bool, b_typegroups: bool) -> bool:
     """
     Builds SD extracting individual files according to filtering criteria
+    :param d_zip_bd: Dictionary with all the ZIP files to extract
+    :param l_kinds: Kind of core files to use (a100t, a35t, etc.)
+    :param l_types: Type of core files to use (bit, zx3, etc.)
+    :param b_mist: True if mist mode is active
+    :param l_tags: Tags of the files to use (computer, arcade, etc.)
     :param s_zip_path: Full path to ZIP file containing original files
-    :param d_zip_files: Dictionary with all the ZIP files to exttact
-    :param s_out_dir: Path to directory wher files will be extracted
+    :param s_out_path: Path where the files are to be copied
+    :param s_out_subpath: Subpath of s_out_path to copy the files into
+    :param b_taggroups: Group the files in directories by tag
+    :param b_typegroups: Group the files in directories ty type
     :return: True if the extraction finishes without problems
     """
 
@@ -523,9 +550,14 @@ def build_sd_fromzip(d_zip_bd: dict[str, Any], l_kinds: list[str],
     d_zip_files: dict[str, Any] = d_zip_bd['files']
     d_tags: dict[str, Any] = d_zip_bd.get('tag_dictionary', {})
     for s_orig in d_zip_files:
+        s_kind = d_zip_files[s_orig].get('kind', '')
+        s_type: str = d_zip_files[s_orig].get('type', '')
         s_dest: str = s_out_path
         if s_out_subpath:
-            s_dest = os.path.join(s_dest, s_out_subpath)
+            if b_mist and s_out_subpath == 'cores' and s_type == 'bit':
+                s_dest = os.path.join(s_dest, 'mist')
+            else:
+                s_dest = os.path.join(s_dest, s_out_subpath)
         l_subdirs: list[str] = d_zip_files[s_orig].get('path', [])
         if l_subdirs:
             s_dest: str = os.path.join(s_dest, os.path.join(*l_subdirs))
@@ -533,10 +565,8 @@ def build_sd_fromzip(d_zip_bd: dict[str, Any], l_kinds: list[str],
         s_hash: str = d_zip_files[s_orig]['hash']
         i_size: int = d_zip_files[s_orig]['size']
         if d_tags:
-            s_kind = d_zip_files[s_orig].get('kind', '')
-            if s_kind in l_kinds and d_zip_files[s_orig][
-                    'type'] in l_types:  # Fully tagged item, copy if tag matches
-                if b_typegroups:
+            if s_kind in l_kinds and s_type in l_types:  # Fully tagged item, copy if tag matches
+                if b_typegroups and not (b_mist and s_type == 'bit'):
                     s_dest = os.path.join(s_dest, d_zip_files[s_orig]['type'])
 
                 for i_item in d_zip_files[s_orig]['tags']:
@@ -610,7 +640,7 @@ def build_arcade_sd_fromdb(s_dir: str, d_db_params: dict[str, Any],
     return True
 
 
-def build_autoboot(s_dir: str, s_autoboot, s_outdir: str) -> bool:
+def build_autoboot(s_dir: str, s_autoboot: str, s_outdir: str) -> bool:
     """
     Builds file and exdos configuration to autoboot
     :param sdir: BAS files directory
@@ -730,14 +760,16 @@ def chk_files_cache(d_files_db: dict[str, Any], l_kind: list[str],
 
 
 def build_sd_files(d_files_db: dict[str, Any], l_kinds: list[str],
-                   l_types: list[str], l_tags: list[str], s_files_path: str,
-                   s_out_path: str, s_out_subpath, b_taggroups: bool,
-                   b_typegroups: bool, b_keep: bool) -> bool:
+                   l_types: list[str], b_mist: bool, l_tags: list[str],
+                   s_files_path: str, s_out_path: str, s_out_subpath: str,
+                   b_taggroups: bool, b_typegroups: bool,
+                   b_keep: bool) -> bool:
     """
     Builds SD downloading individual files according to filtering criteria
     :param d_files_db: Database with all the files information
     :param l_kinds: Kind of core files to use (a100t, a35t, etc.)
     :param l_types: Type of core files to use (bit, zx3, etc.)
+    :param b_mist: True if mist mode is active
     :param l_tags: Tags of the files to use (computer, arcade, etc.)
     :param s_files_path: Path where the original files are
     :param s_out_path: Path where the files are to be copied
@@ -751,7 +783,11 @@ def build_sd_files(d_files_db: dict[str, Any], l_kinds: list[str],
     b_ok: bool = True
 
     if not b_keep:
-        s_sdpath: str = os.path.join(s_out_path, s_out_subpath)
+        s_sdpath: str = os.path.join(s_out_path, 'mist')
+        if b_mist and s_out_subpath == 'cores':
+            if os.path.isdir(s_sdpath):
+                shutil.rmtree(s_sdpath)
+        s_sdpath = os.path.join(s_out_path, s_out_subpath)
         if os.path.isdir(s_sdpath):
             shutil.rmtree(s_sdpath)
 
@@ -759,25 +795,28 @@ def build_sd_files(d_files_db: dict[str, Any], l_kinds: list[str],
     d_tags: dict[str, Any] = d_files_db.get('tag_dictionary', {})
     for s_file in d_files:
         s_name: str = s_file.split('/')[-1]
+        s_kind: str = d_files[s_file].get('kind', '')
+        s_type: str = d_files[s_file].get('type', '')
         s_sdpath: str = os.path.join(s_out_path, s_out_subpath)
+        if b_mist and s_out_subpath == 'cores' and s_type == 'bit':
+            s_sdpath = os.path.join(s_out_path, 'mist')
         if d_tags:
-            s_kind: str = d_files[s_file].get('kind', '')
-            if s_kind in l_kinds and d_files[s_file][
-                    'type'] in l_types:  # Fully tagged item, copy if tag matches
-                if b_typegroups:
+            if s_kind in l_kinds and s_type in l_types:  # Fully tagged item, copy if tag matches
+                if b_typegroups and not (b_mist and s_type == 'bit'):
                     s_sdpath = os.path.join(s_sdpath, d_files[s_file]['type'])
                 for i_item in d_files[s_file]['tags']:
                     for j_item in d_tags:
                         if d_tags[j_item] == i_item and j_item in l_tags:
+                            s_destpath: str = s_sdpath
                             if b_taggroups:
-                                s_sdpath = os.path.join(s_sdpath, j_item)
+                                s_destpath = os.path.join(s_destpath, j_item)
 
                             s_orig: str = os.path.join(s_files_path, s_name)
-                            s_dest: str = os.path.join(s_sdpath, s_name)
+                            s_dest: str = os.path.join(s_destpath, s_name)
                             LOGGER.debug('Copy %s to %s...', s_orig, s_dest)
-                            if not os.path.isdir(s_sdpath):
-                                pathlib.Path(s_sdpath).mkdir(parents=True,
-                                                             exist_ok=True)
+                            if not os.path.isdir(s_destpath):
+                                pathlib.Path(s_destpath).mkdir(parents=True,
+                                                               exist_ok=True)
                             try:
                                 shutil.copyfile(s_orig, s_dest)
                             except OSError as err:
@@ -787,20 +826,21 @@ def build_sd_files(d_files_db: dict[str, Any], l_kinds: list[str],
                 for i_item in d_files[s_file]['tags']:
                     for j_item in d_tags:
                         if d_tags[j_item] == i_item and j_item in l_tags:
+                            s_destpath: str = s_sdpath
                             l_subpath: list[str] = d_files[s_file].get(
                                 "path", [])
                             s_orig: str = s_files_path
                             if l_subpath:
                                 s_orig = os.path.join(s_orig,
                                                       os.path.join(*l_subpath))
-                                s_sdpath = os.path.join(
-                                    s_sdpath, os.path.join(*l_subpath))
+                                s_destpath = os.path.join(
+                                    s_destpath, os.path.join(*l_subpath))
                             s_orig = os.path.join(s_orig, s_name)
-                            s_dest = os.path.join(s_sdpath, s_name)
+                            s_dest = os.path.join(s_destpath, s_name)
                             LOGGER.debug('Copy %s to %s...', s_orig, s_dest)
-                            if not os.path.isdir(s_sdpath):
-                                pathlib.Path(s_sdpath).mkdir(parents=True,
-                                                             exist_ok=True)
+                            if not os.path.isdir(s_destpath):
+                                pathlib.Path(s_destpath).mkdir(parents=True,
+                                                               exist_ok=True)
                             try:
                                 shutil.copyfile(s_orig, s_dest)
                             except OSError as err:
@@ -867,7 +907,7 @@ def chk_mra_cache(d_mra_db: dict[str, Any], d_cores_db: dict[str, Any],
 
 
 def build_arc_files(d_mras: dict[str, Any], d_cores_db: dict[str, Any],
-                    s_out_path: str, s_mras_path: str, s_roms_path,
+                    s_out_path: str, s_mras_path: str, s_roms_path: str,
                     s_cache_path: str):
     """
     Builds ARC and ROM files from MRA and ROM ZIP files
@@ -979,11 +1019,12 @@ def chk_or_download_autoboot(s_autobootbin: str,
 
     b_ok: bool = True
     s_autobootbin_binurl: str = 'https://github.com/kounch/ZX3_Downloader/raw/'
-    s_autobootbin_binurl += '4642df94d67e6384d20006665690d000f39dea41/Autoboot/'
+    s_autobootbin_binurl += '2dc6cdc411c744aa9db20dfbd616bef299770af2/Autoboot/'
     d_autoboot: dict[str, tuple[str, int]] = {
         'AUTOBOOT_BIT.BAS': ('58411f0a0c5f48adf6935734ad0ae63b', 337),
         'AUTOBOOT_CORES.BAS': ('f780a4a6209f700594e9f5c2fbaae42b', 333),
-        'AUTOBOOT_ZX3.BAS': ('10731bb09ec48e11596249c10905b942', 337)
+        'AUTOBOOT_ZX3.BAS': ('10731bb09ec48e11596249c10905b942', 337),
+        'AUTOBOOT_MIST.BAS': ('46e2c93f6479eddc568c5e254a98a8c5', 332)
     }
     s_binhash: str = d_autoboot[s_autobootbin][0]
     i_binsize: int = d_autoboot[s_autobootbin][1]
@@ -1071,7 +1112,7 @@ def chk_or_obtain(s_fpath: str,
     return b_ok
 
 
-def chk_file_hash(s_fpath: str, s_hash: str, i_size: int, s_name) -> bool:
+def chk_file_hash(s_fpath: str, s_hash: str, i_size: int, s_name: str) -> bool:
     """
     Check file hash and size if it exists
     :param s_fpath: File path of the obtained file
@@ -1118,8 +1159,10 @@ def run_process(l_mra_params: list[str], s_item: str):
     :return: Nothing
     """
 
-    mra_process: subprocess.CompletedProcess = subprocess.run(
-        l_mra_params, capture_output=True, check=False, encoding='utf8')
+    mra_process: CompletedProcess[Any] = run(l_mra_params,
+                                             capture_output=True,
+                                             check=False,
+                                             encoding='utf8')
     if mra_process.stdout != '':
         LOGGER.debug(mra_process.stdout)
     if mra_process.stderr != '':
