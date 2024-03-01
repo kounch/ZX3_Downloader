@@ -241,12 +241,12 @@ def parse_args() -> dict[str, Any]:
                         dest='types',
                         help='List of types of core files to include')
 
-    parser.add_argument('-M',
-                        '--mist_mode',
+    parser.add_argument('-m',
+                        '--mode',
                         required=False,
-                        action='store_true',
-                        dest='mist_mode',
-                        help='Deploy bit files to mist directory')
+                        action='store',
+                        dest='mode',
+                        help='Mode configuration (legacy or mist)')
 
     parser.add_argument('-T',
                         '--tags',
@@ -334,8 +334,15 @@ def parse_args() -> dict[str, Any]:
                 else:
                     LOGGER.error('Bad type of file: %s', s_type)
 
-    if arguments.mist_mode:
-        values['mist_mode'] = True
+    if arguments.mode:
+        l_modes = ['legacy', 'mist']
+        if arguments.mode.lower() in l_modes:
+            if arguments.mode.lower() == 'mist':
+                values['mist_mode'] = True
+            elif arguments.mode.lower() == 'legacy':
+                values['mist_mode'] = False
+        else:
+            LOGGER.error('Bad mode: %s', arguments.mode)
 
     if arguments.tags:
         all_tags: list[str] = values['tags']
